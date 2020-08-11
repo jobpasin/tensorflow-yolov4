@@ -12,12 +12,14 @@ from tensorflow.compat.v1 import ConfigProto
 from tensorflow.compat.v1 import InteractiveSession
 import time
 
+
 class YoloV4:
-    def __init__(self, FLAGS):
+    def __init__(self, FLAGS, interested_class=None):
         config = ConfigProto()
         config.gpu_options.allow_growth = True
         session = InteractiveSession(config=config)
         self.FLAGS = FLAGS
+        self.interested_class = interested_class
         self.interpreter = None
         self.saved_model_loaded = None
         self.infer = None
@@ -33,7 +35,6 @@ class YoloV4:
             self.saved_model_loaded = tf.saved_model.load(FLAGS.weights, tags=[tag_constants.SERVING])
             self.infer = self.saved_model_loaded.signatures['serving_default']
 
-
     def predict(self, frame):
         STRIDES, ANCHORS, NUM_CLASS, XYSCALE = utils.load_config(self.FLAGS)
         input_size = self.FLAGS.size
@@ -47,7 +48,8 @@ class YoloV4:
         if self.FLAGS.framework == 'tflite':
             self.interpreter.set_tensor(self.input_details[0]['index'], image_data)
             self.interpreter.invoke()
-            pred = [self.interpreter.get_tensor(self.output_details[i]['index']) for i in range(len(self.output_details))]
+            pred = [self.interpreter.get_tensor(self.output_details[i]['index']) for i in
+                    range(len(self.output_details))]
             if self.FLAGS.model == 'yolov3' and self.FLAGS.tiny == True:
                 boxes, pred_conf = filter_boxes(pred[1], pred[0], score_threshold=0.25,
                                                 input_shape=tf.constant([input_size, input_size]))
@@ -58,7 +60,7 @@ class YoloV4:
             batch_data = tf.constant(image_data)
             start_time = time.time()
             pred_bbox = self.infer(batch_data)
-            print("Inference time:", time.time()-start_time)
+            print("Inference time:", time.time() - start_time)
             for key, value in pred_bbox.items():
                 boxes = value[:, :, 0:4]
                 pred_conf = value[:, :, 4:]
@@ -72,8 +74,26 @@ class YoloV4:
             iou_threshold=self.FLAGS.iou,
             score_threshold=self.FLAGS.score
         )
-        pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(), valid_detections.numpy()]
+        pred_bbox = [boxes.numpy(), scores.numpy(),classes.numpy(), valid_detections.numpy()]
+        if self.interested_class is not None:
+            pred_bbox = self.filter_class(pred_bbox)
         return pred_bbox
 
     def draw_bbox(self, frame, pred_bbox):
         return utils.draw_bbox(frame, pred_bbox)
+
+    def filter_class(self, pred_bbox):
+        new_boxes = []
+        new_scores = []
+        new_classes = []
+        current_detections = 0
+        for i in range(pred_bbox[3][0]):
+            if int(pred_bbox[2][0,i]) in self.interested_class:
+                new_boxes.append(pred_bbox[0][0,i, :])
+                new_scores.append(pred_bbox[1][0,i])
+                new_classes.append(pred_bbox[2][0,i])
+                current_detections += 1
+        if current_detections == 0:
+            return [np.zeros([1,0,4]),np.zeros([1,0]),np.zeros([1,0]),np.array([current_detections])]
+        return [np.expand_dims(np.stack(new_boxes),axis=0), np.expand_dims(np.stack(new_scores),axis=0),
+                np.expand_dims(np.stack(new_classes), axis=0),np.array([current_detections])]
