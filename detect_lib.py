@@ -74,13 +74,13 @@ class YoloV4:
             iou_threshold=self.FLAGS.iou,
             score_threshold=self.FLAGS.score
         )
-        pred_bbox = [boxes.numpy(), scores.numpy(),classes.numpy(), valid_detections.numpy()]
+        pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(), valid_detections.numpy()]
         if self.interested_class is not None:
             pred_bbox = self.filter_class(pred_bbox)
         return pred_bbox
 
     def draw_bbox(self, frame, pred_bbox):
-        return utils.draw_bbox(frame, pred_bbox)
+        return utils.draw_bbox(frame, pred_bbox, show_label=True)
 
     def filter_class(self, pred_bbox):
         new_boxes = []
@@ -88,12 +88,12 @@ class YoloV4:
         new_classes = []
         current_detections = 0
         for i in range(pred_bbox[3][0]):
-            if int(pred_bbox[2][0,i]) in self.interested_class:
-                new_boxes.append(pred_bbox[0][0,i, :])
-                new_scores.append(pred_bbox[1][0,i])
-                new_classes.append(pred_bbox[2][0,i])
+            if int(pred_bbox[2][0, i]) in self.interested_class:
+                new_boxes.append(pred_bbox[0][0, i, :])
+                new_scores.append(pred_bbox[1][0, i])
+                new_classes.append(pred_bbox[2][0, i])
                 current_detections += 1
         if current_detections == 0:
-            return [np.zeros([1,0,4]),np.zeros([1,0]),np.zeros([1,0]),np.array([current_detections])]
-        return [np.expand_dims(np.stack(new_boxes),axis=0), np.expand_dims(np.stack(new_scores),axis=0),
-                np.expand_dims(np.stack(new_classes), axis=0),np.array([current_detections])]
+            return [np.zeros([1, 0, 4]), np.zeros([1, 0]), np.zeros([1, 0]), np.array([current_detections])]
+        return [np.expand_dims(np.stack(new_boxes), axis=0), np.expand_dims(np.stack(new_scores), axis=0),
+                np.expand_dims(np.stack(new_classes), axis=0), np.array([current_detections])]
