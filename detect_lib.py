@@ -60,7 +60,6 @@ class YoloV4:
             batch_data = tf.constant(image_data)
             start_time = time.time()
             pred_bbox = self.infer(batch_data)
-            print("Inference time:", time.time() - start_time)
             for key, value in pred_bbox.items():
                 boxes = value[:, :, 0:4]
                 pred_conf = value[:, :, 4:]
