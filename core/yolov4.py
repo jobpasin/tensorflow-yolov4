@@ -3,10 +3,16 @@
 
 import numpy as np
 import tensorflow as tf
-import tensorflow_yolov4.core.utils as utils
-import tensorflow_yolov4.core.common as common
-import tensorflow_yolov4.core.backbone as backbone
-from tensorflow_yolov4.core.config import cfg
+try:
+    import tensorflow_yolov4.core.utils as utils
+    import tensorflow_yolov4.core.common as common
+    import tensorflow_yolov4.core.backbone as backbone
+    from tensorflow_yolov4.core.config import cfg
+except ModuleNotFoundError:
+    import core.utils as utils
+    import core.common as common
+    import core.backbone as backbone
+    from core.config import cfg
 
 # NUM_CLASS       = len(utils.read_class_names(cfg.YOLO.CLASSES))
 # STRIDES         = np.array(cfg.YOLO.STRIDES)

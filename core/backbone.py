@@ -2,7 +2,10 @@
 # coding=utf-8
 
 import tensorflow as tf
-import tensorflow_yolov4.core.common as common
+try:
+    import tensorflow_yolov4.core.common as common
+except ModuleNotFoundError:
+    import core.common as common
 
 def darknet53(input_data):
 

@@ -3,8 +3,10 @@ import random
 import colorsys
 import numpy as np
 import tensorflow as tf
-from tensorflow_yolov4.core.config import cfg
-
+try:
+    from tensorflow_yolov4.core.config import cfg
+except ModuleNotFoundError:
+    from core.config import cfg
 def load_freeze_layer(model='yolov4', tiny=False):
     if tiny:
         if model == 'yolov3':
