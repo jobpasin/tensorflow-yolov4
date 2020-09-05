@@ -126,7 +126,17 @@ def image_preprocess(image, target_size, gt_boxes=None):
         gt_boxes[:, [1, 3]] = gt_boxes[:, [1, 3]] * scale + dh
         return image_paded, gt_boxes
 
-def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_label=True):
+
+def is_inside(boundary_matrix, point, width=500, height=500):
+    point = np.array([[point[0]], [point[1]], [1]])
+    new_point = np.matmul(boundary_matrix, point)
+    new_point = new_point / new_point[2]
+    if 0 <= new_point[0] <= width and 0 <= new_point[1] <= height:
+        return True
+    return False
+
+
+def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_label=True, boundary=None):
     num_classes = len(classes)
     image_h, image_w, _ = image.shape
     hsv_tuples = [(1.0 * x / num_classes, 1., 1.) for x in range(num_classes)]
@@ -141,6 +151,9 @@ def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_la
     for i in range(num_boxes[0]):
         if int(out_classes[0][i]) < 0 or int(out_classes[0][i]) > num_classes: continue
         coor = out_boxes[0][i]
+        if boundary is not None:
+            centroid = np.array([(coor[1]+coor[3])/2, (coor[0]+coor[2])/2 ])
+            if not is_inside(boundary.warp_matrix, centroid, boundary.width, boundary.height): continue
         # coor[0] = int(coor[0] * image_h)
         # coor[2] = int(coor[2] * image_h)
         # coor[1] = int(coor[1] * image_w)

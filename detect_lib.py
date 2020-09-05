@@ -74,8 +74,15 @@ class YoloV4:
             pred_bbox = self.filter_class(pred_bbox)
         return pred_bbox
 
-    def draw_bbox(self, frame, pred_bbox):
-        return utils.draw_bbox(frame, pred_bbox, show_label=True)
+    def draw_bbox(self, frame, pred_bbox, boundary=None):
+        """
+        Draw bounding box on yolov4 output
+        @param frame:
+        @param pred_bbox: Direct output from yolov4
+        @param boundary: WarpMatrix class. Give None will show all bbox in the image
+        @return:
+        """
+        return utils.draw_bbox(frame, pred_bbox, show_label=True, boundary=boundary)
 
     def filter_class(self, pred_bbox):
         new_boxes = []
