@@ -3,10 +3,13 @@ import random
 import colorsys
 import numpy as np
 import tensorflow as tf
+
 try:
     from tensorflow_yolov4.core.config import cfg
 except ModuleNotFoundError:
     from core.config import cfg
+
+
 def load_freeze_layer(model='yolov4', tiny=False):
     if tiny:
         if model == 'yolov3':
@@ -19,6 +22,7 @@ def load_freeze_layer(model='yolov4', tiny=False):
         else:
             freeze_layouts = ['conv2d_93', 'conv2d_101', 'conv2d_109']
     return freeze_layouts
+
 
 def load_weights(model, weights_file, model_name='yolov4', is_tiny=False):
     if is_tiny:
@@ -40,8 +44,8 @@ def load_weights(model, weights_file, model_name='yolov4', is_tiny=False):
 
     j = 0
     for i in range(layer_size):
-        conv_layer_name = 'conv2d_%d' %i if i > 0 else 'conv2d'
-        bn_layer_name = 'batch_normalization_%d' %j if j > 0 else 'batch_normalization'
+        conv_layer_name = 'conv2d_%d' % i if i > 0 else 'conv2d'
+        bn_layer_name = 'batch_normalization_%d' % j if j > 0 else 'batch_normalization'
 
         conv_layer = model.get_layer(conv_layer_name)
         filters = conv_layer.filters
@@ -81,6 +85,7 @@ def read_class_names(class_file_name):
             names[ID] = name.strip('\n')
     return names
 
+
 def load_config(FLAGS):
     if FLAGS.tiny:
         STRIDES = np.array(cfg.YOLO.STRIDES_TINY)
@@ -97,6 +102,7 @@ def load_config(FLAGS):
 
     return STRIDES, ANCHORS, NUM_CLASS, XYSCALE
 
+
 def get_anchors(anchors_path, tiny=False):
     anchors = np.array(anchors_path)
     if tiny:
@@ -104,18 +110,18 @@ def get_anchors(anchors_path, tiny=False):
     else:
         return anchors.reshape(3, 3, 2)
 
+
 def image_preprocess(image, target_size, gt_boxes=None):
+    ih, iw = target_size
+    h, w, _ = image.shape
 
-    ih, iw    = target_size
-    h,  w, _  = image.shape
-
-    scale = min(iw/w, ih/h)
-    nw, nh  = int(scale * w), int(scale * h)
+    scale = min(iw / w, ih / h)
+    nw, nh = int(scale * w), int(scale * h)
     image_resized = cv2.resize(image, (nw, nh))
 
     image_paded = np.full(shape=[ih, iw, 3], fill_value=128.0)
-    dw, dh = (iw - nw) // 2, (ih-nh) // 2
-    image_paded[dh:nh+dh, dw:nw+dw, :] = image_resized
+    dw, dh = (iw - nw) // 2, (ih - nh) // 2
+    image_paded[dh:nh + dh, dw:nw + dw, :] = image_resized
     image_paded = image_paded / 255.
 
     if gt_boxes is None:
@@ -136,6 +142,13 @@ def is_inside(boundary_matrix, point, width=500, height=500):
     return False
 
 
+def is_inside_bbox(boundary_matrix, startX, endX, startY, endY, width=500, height=500):
+    return is_inside(boundary_matrix, np.array([startX, startY]), width, height) or \
+           is_inside(boundary_matrix, np.array([startX, endY]), width, height) or \
+           is_inside(boundary_matrix, np.array([endX, startY]), width, height) or \
+           is_inside(boundary_matrix, np.array([endX, endY]), width, height)
+
+
 def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_label=True, boundary=None):
     num_classes = len(classes)
     image_h, image_w, _ = image.shape
@@ -152,8 +165,10 @@ def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_la
         if int(out_classes[0][i]) < 0 or int(out_classes[0][i]) > num_classes: continue
         coor = out_boxes[0][i]
         if boundary is not None:
-            centroid = np.array([(coor[1]+coor[3])/2, (coor[0]+coor[2])/2 ])
-            if not is_inside(boundary.warp_matrix, centroid, boundary.width, boundary.height): continue
+            # centroid = np.array([(coor[1]+coor[3])/2, (coor[0]+coor[2])/2 ])
+            in_roi = is_inside_bbox(boundary.warp_matrix, coor[1], coor[3], coor[0], coor[2], boundary.width,
+                                    boundary.height)
+            if not in_roi: continue
         # coor[0] = int(coor[0] * image_h)
         # coor[2] = int(coor[2] * image_h)
         # coor[1] = int(coor[1] * image_w)
@@ -171,11 +186,12 @@ def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_la
             bbox_mess = '%s: %.2f' % (classes[class_ind], score)
             t_size = cv2.getTextSize(bbox_mess, 0, fontScale, thickness=bbox_thick // 2)[0]
             c3 = (c1[0] + t_size[0], c1[1] - t_size[1] - 3)
-            cv2.rectangle(image, c1, (np.float32(c3[0]), np.float32(c3[1])), bbox_color, -1) #filled
+            cv2.rectangle(image, c1, (np.float32(c3[0]), np.float32(c3[1])), bbox_color, -1)  # filled
 
             cv2.putText(image, bbox_mess, (c1[0], np.float32(c1[1] - 2)), cv2.FONT_HERSHEY_SIMPLEX,
                         fontScale, (0, 0, 0), bbox_thick // 2, lineType=cv2.LINE_AA)
     return image
+
 
 def bbox_iou(bboxes1, bboxes2):
     """
@@ -322,23 +338,24 @@ def bbox_ciou(bboxes1, bboxes2):
     diou = iou - tf.math.divide_no_nan(rho_2, c_2)
 
     v = (
-        (
-            tf.math.atan(
-                tf.math.divide_no_nan(bboxes1[..., 2], bboxes1[..., 3])
-            )
-            - tf.math.atan(
-                tf.math.divide_no_nan(bboxes2[..., 2], bboxes2[..., 3])
-            )
-        )
-        * 2
-        / np.pi
-    ) ** 2
+                (
+                        tf.math.atan(
+                            tf.math.divide_no_nan(bboxes1[..., 2], bboxes1[..., 3])
+                        )
+                        - tf.math.atan(
+                    tf.math.divide_no_nan(bboxes2[..., 2], bboxes2[..., 3])
+                )
+                )
+                * 2
+                / np.pi
+        ) ** 2
 
     alpha = tf.math.divide_no_nan(v, 1 - iou + v)
 
     ciou = diou - alpha * v
 
     return ciou
+
 
 def nms(bboxes, iou_threshold, sigma=0.3, method='nms'):
     """
@@ -377,14 +394,16 @@ def nms(bboxes, iou_threshold, sigma=0.3, method='nms'):
 
     return best_bboxes
 
+
 def freeze_all(model, frozen=True):
     model.trainable = not frozen
     if isinstance(model, tf.keras.Model):
         for l in model.layers:
             freeze_all(l, frozen)
+
+
 def unfreeze_all(model, frozen=False):
     model.trainable = not frozen
     if isinstance(model, tf.keras.Model):
         for l in model.layers:
             unfreeze_all(l, frozen)
-
