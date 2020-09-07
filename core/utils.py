@@ -149,7 +149,7 @@ def is_inside_bbox(boundary_matrix, startX, endX, startY, endY, width=500, heigh
            is_inside(boundary_matrix, np.array([endX, endY]), width, height)
 
 
-# New: Use for run_from_log.py
+# New: Use for rerun_from_log.py
 def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_label=True, boundary=None):
     num_classes = len(classes)
     image_h, image_w, _ = image.shape
