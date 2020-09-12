@@ -1,6 +1,7 @@
-import cv2
-import random
 import colorsys
+import random
+
+import cv2
 import numpy as np
 import tensorflow as tf
 
@@ -165,10 +166,11 @@ def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_la
     for i in range(num_boxes[0]):
         if int(out_classes[0][i]) < 0 or int(out_classes[0][i]) > num_classes: continue
         coor = out_boxes[0][i]
-        if boundary is not None:
-            # centroid = np.array([(coor[1]+coor[3])/2, (coor[0]+coor[2])/2 ])
-            in_roi = is_inside_bbox(boundary.warp_matrix, coor[1], coor[3], coor[0], coor[2], boundary.width,
-                                    boundary.height)
+        if boundary is not None:  # Add special condition to show bbox if centroid is inside roi
+            centroid = np.array([(coor[1] + coor[3]) / 2, (coor[0] + coor[2]) / 2])
+            in_roi = is_inside(boundary.warp_matrix, centroid, boundary.width, boundary.height)
+            # in_roi = is_inside_bbox(boundary.warp_matrix, coor[1], coor[3], coor[0], coor[2], boundary.width,
+            #                         boundary.height)
             if not in_roi: continue
         # coor[0] = int(coor[0] * image_h)
         # coor[2] = int(coor[2] * image_h)

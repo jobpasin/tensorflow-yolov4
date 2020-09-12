@@ -1,12 +1,14 @@
-import tensorflow as tf
-import tensorflow_yolov4.core.utils as utils
-from tensorflow_yolov4.core.yolov4 import filter_boxes
-from tensorflow.python.saved_model import tag_constants
+import time
+
 import cv2
 import numpy as np
+import tensorflow as tf
 from tensorflow.compat.v1 import ConfigProto
 from tensorflow.compat.v1 import InteractiveSession
-import time
+from tensorflow.python.saved_model import tag_constants
+
+import tensorflow_yolov4.core.utils as utils
+from tensorflow_yolov4.core.yolov4 import filter_boxes
 
 
 class YoloV4:
