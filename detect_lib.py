@@ -8,7 +8,7 @@ from tensorflow.compat.v1 import InteractiveSession
 from tensorflow.python.saved_model import tag_constants
 
 import tensorflow_yolov4.core.utils as utils
-from tensorflow_yolov4.core.yolov4 import filter_boxes
+# from tensorflow_yolov4.core.yolov4 import filter_boxes
 
 
 class YoloV4:
