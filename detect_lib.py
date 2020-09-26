@@ -13,9 +13,23 @@ from tensorflow_yolov4.core.yolov4 import filter_boxes
 
 class YoloV4:
     def __init__(self, FLAGS, interested_class=None):
-        config = ConfigProto()
-        config.gpu_options.allow_growth = True
-        session = InteractiveSession(config=config)
+        # config = ConfigProto()
+        # config.gpu_options.allow_growth = True
+        # session = InteractiveSession(config=config)
+        gpus = tf.config.experimental.list_physical_devices('GPU')
+        if gpus:
+            try:
+                # Currently, memory growth needs to be the same across GPUs
+                # tf.config.experimental.set_visible_devices(gpus[0], 'GPU')
+                for gpu in gpus:
+                    tf.config.experimental.set_memory_growth(gpu, True)
+                logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+                print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+            except RuntimeError as e:
+                # Memory growth must be set before GPUs have been initialized
+                print(e)
+        self.strategy = tf.distribute.MirroredStrategy()
+
         self.FLAGS = FLAGS
         self.interested_class = interested_class
         self.interpreter = None
@@ -43,24 +57,25 @@ class YoloV4:
         image_data = image_data / 255.
         image_data = image_data[np.newaxis, ...].astype(np.float32)
 
-        if self.FLAGS.framework == 'tflite':
-            self.interpreter.set_tensor(self.input_details[0]['index'], image_data)
-            self.interpreter.invoke()
-            pred = [self.interpreter.get_tensor(self.output_details[i]['index']) for i in
-                    range(len(self.output_details))]
-            if self.FLAGS.model == 'yolov3' and self.FLAGS.tiny == True:
-                boxes, pred_conf = filter_boxes(pred[1], pred[0], score_threshold=0.25,
-                                                input_shape=tf.constant([input_size, input_size]))
+        with self.strategy.scope():
+            if self.FLAGS.framework == 'tflite':
+                self.interpreter.set_tensor(self.input_details[0]['index'], image_data)
+                self.interpreter.invoke()
+                pred = [self.interpreter.get_tensor(self.output_details[i]['index']) for i in
+                        range(len(self.output_details))]
+                if self.FLAGS.model == 'yolov3' and self.FLAGS.tiny == True:
+                    boxes, pred_conf = filter_boxes(pred[1], pred[0], score_threshold=0.25,
+                                                    input_shape=tf.constant([input_size, input_size]))
+                else:
+                    boxes, pred_conf = filter_boxes(pred[0], pred[1], score_threshold=0.25,
+                                                    input_shape=tf.constant([input_size, input_size]))
             else:
-                boxes, pred_conf = filter_boxes(pred[0], pred[1], score_threshold=0.25,
-                                                input_shape=tf.constant([input_size, input_size]))
-        else:
-            batch_data = tf.constant(image_data)
-            start_time = time.time()
-            pred_bbox = self.infer(batch_data)
-            for key, value in pred_bbox.items():
-                boxes = value[:, :, 0:4]
-                pred_conf = value[:, :, 4:]
+                batch_data = tf.constant(image_data)
+                start_time = time.time()
+                pred_bbox = self.infer(batch_data)
+                for key, value in pred_bbox.items():
+                    boxes = value[:, :, 0:4]
+                    pred_conf = value[:, :, 4:]
 
         boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
             boxes=tf.reshape(boxes, (tf.shape(boxes)[0], -1, 1, 4)),
