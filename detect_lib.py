@@ -1,6 +1,7 @@
 import os
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+from absl import logging
 import time
 import sys
 import cv2
@@ -22,6 +23,7 @@ class YoloV4:
         # config.gpu_options.allow_growth = True
         # session = InteractiveSession(config=config)
         # tf.debugging.set_log_device_placement(True)
+        tf.autograph.set_verbosity(3)
         gpus = tf.config.experimental.list_physical_devices('GPU')
         if gpus:
             # # Create 2 virtual GPUs with 1GB memory each
