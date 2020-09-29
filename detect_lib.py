@@ -1,5 +1,8 @@
-import time
+import os
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+import time
+import sys
 import cv2
 import numpy as np
 import tensorflow as tf
@@ -8,7 +11,9 @@ from tensorflow.compat.v1 import InteractiveSession
 from tensorflow.python.saved_model import tag_constants
 
 import tensorflow_yolov4.core.utils as utils
+
 # from tensorflow_yolov4.core.yolov4 import filter_boxes
+sys.stdout.flush()
 
 
 class YoloV4:
@@ -16,8 +21,20 @@ class YoloV4:
         # config = ConfigProto()
         # config.gpu_options.allow_growth = True
         # session = InteractiveSession(config=config)
+        # tf.debugging.set_log_device_placement(True)
         gpus = tf.config.experimental.list_physical_devices('GPU')
         if gpus:
+            # # Create 2 virtual GPUs with 1GB memory each
+            # try:
+            #     tf.config.experimental.set_virtual_device_configuration(
+            #         gpus[0],
+            #         [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=2048),
+            #          tf.config.experimental.VirtualDeviceConfiguration(memory_limit=2048)])
+            #     logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+            #     print(len(gpus), "Physical GPU,", len(logical_gpus), "Logical GPUs")
+            # except RuntimeError as e:
+            #     # Virtual devices must be set before GPUs have been initialized
+            #     print(e)
             try:
                 # Currently, memory growth needs to be the same across GPUs
                 # tf.config.experimental.set_visible_devices(gpus[0], 'GPU')
@@ -28,6 +45,7 @@ class YoloV4:
             except RuntimeError as e:
                 # Memory growth must be set before GPUs have been initialized
                 print(e)
+
         self.strategy = tf.distribute.MirroredStrategy()
 
         self.FLAGS = FLAGS
@@ -77,18 +95,18 @@ class YoloV4:
                     boxes = value[:, :, 0:4]
                     pred_conf = value[:, :, 4:]
 
-        boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
-            boxes=tf.reshape(boxes, (tf.shape(boxes)[0], -1, 1, 4)),
-            scores=tf.reshape(
-                pred_conf, (tf.shape(pred_conf)[0], -1, tf.shape(pred_conf)[-1])),
-            max_output_size_per_class=50,
-            max_total_size=50,
-            iou_threshold=self.FLAGS.iou,
-            score_threshold=self.FLAGS.score
-        )
-        pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(), valid_detections.numpy()]
-        if self.interested_class is not None:
-            pred_bbox = self.filter_class(pred_bbox)
+            boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
+                boxes=tf.reshape(boxes, (tf.shape(boxes)[0], -1, 1, 4)),
+                scores=tf.reshape(
+                    pred_conf, (tf.shape(pred_conf)[0], -1, tf.shape(pred_conf)[-1])),
+                max_output_size_per_class=50,
+                max_total_size=50,
+                iou_threshold=self.FLAGS.iou,
+                score_threshold=self.FLAGS.score
+            )
+            pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(), valid_detections.numpy()]
+            if self.interested_class is not None:
+                pred_bbox = self.filter_class(pred_bbox)
         return pred_bbox
 
     def draw_bbox(self, frame, pred_bbox, boundary=None):

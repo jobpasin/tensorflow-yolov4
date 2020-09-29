@@ -5,7 +5,6 @@ from absl import app, flags
 from absl.flags import FLAGS
 from lxml import etree
 
-
 flags.DEFINE_string('anno_dir', '../../data/VOCtrainval_11-May-2012/VOCdevkit/VOC2012/Annotations', 'path to anno dir')
 flags.DEFINE_string('output', '../../data/classes/voc2012.names', 'path to anno dir')
 
@@ -17,14 +16,14 @@ def make_names(anno_dir, output):
 
     for anno_file in anno_list:
         p = os.path.join(anno_dir, anno_file)
-        
+
         # Get annotation.
         root = etree.parse(p).getroot()
         names = root.xpath('//object/name')
 
         for n in names:
             labels_dict[n.text] = 0
-    
+
     labels = list(labels_dict.keys())
     labels.sort()
 
@@ -43,4 +42,4 @@ if __name__ == "__main__":
     try:
         app.run(main)
     except SystemExit:
-        pass    
+        pass

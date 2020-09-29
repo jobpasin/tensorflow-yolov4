@@ -1,4 +1,4 @@
-from absl import app, flags, logging
+from absl import app, flags
 import os
 import pickle
 from os import listdir
@@ -12,7 +12,8 @@ flags.DEFINE_string('coco_path', "/Volumes/Elements/data/coco_dataset/coco", 're
 flags.DEFINE_string('image_path', "images/val2017", 'path to image val')
 flags.DEFINE_string('anno_path_val', '../data/dataset/val2017.txt', 'path to classes file')
 
-def convert_annotation(output, data, data_type = "val"):
+
+def convert_annotation(output, data, data_type="val"):
     class_names = [c.strip() for c in open(FLAGS.classes).readlines()]
     replace_dict = {"couch": "sofa", "airplane": "aeroplane", "tv": "tvmonitor", "motorcycle": "motorbike"}
 
@@ -55,18 +56,21 @@ def convert_annotation(output, data, data_type = "val"):
                     ymin = int(value["bndbox"]["ymin"])
                     ymax = int(value["bndbox"]["ymax"])
                     annotation += ' ' + ','.join([str(xmin), str(ymin), str(xmax), str(ymax), str(class_ind)])
-            else: continue
+            else:
+                continue
             f.write(annotation + "\n")
             count += 1
             # print(annotation)
     print(count)
     return
 
+
 def main(_argv):
     with open(FLAGS.coco_data, "rb") as input_file:
         data = pickle.load(input_file)
     data = data[1]
     convert_annotation(FLAGS.anno_path_val, data)
+
 
 if __name__ == '__main__':
     try:

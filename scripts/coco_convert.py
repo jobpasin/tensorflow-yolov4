@@ -1,4 +1,4 @@
-from absl import app, flags, logging
+from absl import app, flags
 from absl.flags import FLAGS
 import cv2
 import numpy as np
@@ -7,8 +7,10 @@ import json
 import sys
 import pickle
 
-flags.DEFINE_string('input', '/Volumes/Elements/data/coco_dataset/coco/annotations/instances_val2017.json', 'path to classes file')
+flags.DEFINE_string('input', '/Volumes/Elements/data/coco_dataset/coco/annotations/instances_val2017.json',
+                    'path to classes file')
 flags.DEFINE_string('output', 'val2017.pkl', 'path to classes file')
+
 
 class COCO:
     """
@@ -40,9 +42,9 @@ class COCO:
                 cls = None
 
                 for info in images_info:
-                        if info["id"] == image_id:
-                            filename, img_width, img_height = \
-                                info["file_name"].split(".")[0], info["width"], info["height"]
+                    if info["id"] == image_id:
+                        filename, img_width, img_height = \
+                            info["file_name"].split(".")[0], info["width"], info["height"]
 
                 for category in cls_info:
                     if category["id"] == cls_id:
@@ -87,7 +89,7 @@ class COCO:
                 print(str(progress_cnt) + "/" + str(progress_length) + " total: " + str(round(percent, 2)))
                 progress_cnt += 1
 
-            #print(json.dumps(data, indent=4, sort_keys = True))
+            # print(json.dumps(data, indent=4, sort_keys = True))
             return True, data
 
         except Exception as e:
@@ -99,11 +101,13 @@ class COCO:
 
             return False, msg
 
+
 def main(_argv):
     coco = COCO()
     data = coco.parse(FLAGS.input)
     with open(FLAGS.output, 'wb') as handle:
         pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
 
 if __name__ == '__main__':
     try:

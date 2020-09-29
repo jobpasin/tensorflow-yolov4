@@ -1,4 +1,4 @@
-from absl import app, flags, logging
+from absl import app, flags
 from absl.flags import FLAGS
 import cv2
 import os
@@ -13,7 +13,7 @@ from core.config import cfg
 flags.DEFINE_string('weights', './checkpoints/yolov4-416',
                     'path to weights file')
 flags.DEFINE_string('framework', 'tf', 'select model type in (tf, tflite, trt)'
-                    'path to weights file')
+                                       'path to weights file')
 flags.DEFINE_string('model', 'yolov4', 'yolov3 or yolov4')
 flags.DEFINE_boolean('tiny', False, 'yolov3 or yolov3-tiny')
 flags.DEFINE_integer('size', 416, 'resize images to')
@@ -21,6 +21,7 @@ flags.DEFINE_string('annotation_path', "./data/dataset/val2017.txt", 'annotation
 flags.DEFINE_string('write_image_path', "./data/detection/", 'write image path')
 flags.DEFINE_float('iou', 0.5, 'iou threshold')
 flags.DEFINE_float('score', 0.25, 'score threshold')
+
 
 def main(_argv):
     INPUT_SIZE = FLAGS.size
@@ -108,7 +109,8 @@ def main(_argv):
                 iou_threshold=FLAGS.iou,
                 score_threshold=FLAGS.score
             )
-            boxes, scores, classes, valid_detections = [boxes.numpy(), scores.numpy(), classes.numpy(), valid_detections.numpy()]
+            boxes, scores, classes, valid_detections = [boxes.numpy(), scores.numpy(), classes.numpy(),
+                                                        valid_detections.numpy()]
 
             # if cfg.TEST.DECTECTED_IMAGE_PATH is not None:
             #     image_result = utils.draw_bbox(np.copy(image), [boxes, scores, classes, valid_detections])
@@ -134,10 +136,9 @@ def main(_argv):
                     print('\t' + str(bbox_mess).strip())
             print(num, num_lines)
 
+
 if __name__ == '__main__':
     try:
         app.run(main)
     except SystemExit:
         pass
-
-
