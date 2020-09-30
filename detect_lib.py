@@ -22,8 +22,7 @@ class YoloV4:
         # config = ConfigProto()
         # config.gpu_options.allow_growth = True
         # session = InteractiveSession(config=config)
-        # tf.debugging.set_log_device_placement(True)
-        tf.autograph.set_verbosity(3)
+        # # tf.debugging.set_log_device_placement(True)
         gpus = tf.config.experimental.list_physical_devices('GPU')
         if gpus:
             # # Create 2 virtual GPUs with 1GB memory each
@@ -48,6 +47,9 @@ class YoloV4:
                 # Memory growth must be set before GPUs have been initialized
                 print(e)
 
+        gpus = tf.config.experimental.list_physical_devices('GPU')
+        if len(gpus) == 0:
+            logging.warning('')
         self.strategy = tf.distribute.MirroredStrategy()
 
         self.FLAGS = FLAGS
