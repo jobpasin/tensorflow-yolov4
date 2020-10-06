@@ -1,9 +1,16 @@
 import tensorflow as tf
 from absl import app, flags
 from absl.flags import FLAGS
-from core.yolov4 import YOLO, decode, filter_boxes
+
+try:
+    from tensorflow_yolov4.core.yolov4 import YOLO, decode, filter_boxes
+    from tensorflow_yolov4.core.config import cfg
+except ModuleNotFoundError:
+    from core.yolov4 import YOLO, decode, filter_boxes
+    from core.config import cfg
 import core.utils as utils
-from core.config import cfg
+
+import numpy as np
 
 flags.DEFINE_string('weights', './data/yolov4.weights', 'path to weights file')
 flags.DEFINE_string('output', './checkpoints/yolov4-416', 'path to output')
@@ -11,7 +18,7 @@ flags.DEFINE_boolean('tiny', False, 'is yolo-tiny or not')
 flags.DEFINE_integer('input_size', 416, 'define input size of export model')
 flags.DEFINE_float('score_thres', 0.2, 'define score threshold')
 flags.DEFINE_string('framework', 'tf', 'define what framework do you want to convert (tf, trt, tflite)')
-flags.DEFINE_string('model', 'yolov4', 'yolov3 or yolov4')
+flags.DEFINE_enum('model', 'yolov4', ['yolov3', 'yolov4'], 'yolov3 or yolov4')
 
 
 def save_tf():
