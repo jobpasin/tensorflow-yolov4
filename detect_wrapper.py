@@ -1,7 +1,6 @@
 import os
 
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-from absl import logging
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 import time
 import sys
 import cv2
@@ -10,10 +9,11 @@ import tensorflow as tf
 from tensorflow.compat.v1 import ConfigProto
 from tensorflow.compat.v1 import InteractiveSession
 from tensorflow.python.saved_model import tag_constants
-
 import tensorflow_yolov4.core.utils as utils
+from absl import logging
 
-from queue import Queue
+from queue import Queue, Empty
+from performance import TimeMeasure
 
 # from tensorflow_yolov4.core.yolov4 import filter_boxes
 sys.stdout.flush()
@@ -21,24 +21,12 @@ sys.stdout.flush()
 
 class YoloV4:
     def __init__(self, FLAGS, interested_class=None):
+        logging.set_verbosity(logging.WARNING)
         # config = ConfigProto()
         # config.gpu_options.allow_growth = True
         # session = InteractiveSession(config=config)
         # tf.debugging.set_log_device_placement(True)
         gpus = tf.config.experimental.list_physical_devices('GPU')
-        # if gpus:
-        #     # Create 2 virtual GPUs with 1GB memory each
-        #     try:
-        #         tf.config.experimental.set_virtual_device_configuration(
-        #             gpus[0],
-        #             [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=1024),
-        #              tf.config.experimental.VirtualDeviceConfiguration(memory_limit=1024)
-        #              ])
-        #         logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-        #         print(len(gpus), "Physical GPU,", len(logical_gpus), "Logical GPUs")
-        #     except RuntimeError as e:
-        #         # Virtual devices must be set before GPUs have been initialized
-        #         print(e)
         try:
             # Currently, memory growth needs to be the same across GPUs
             tf.config.experimental.set_visible_devices(gpus[0], 'GPU')
@@ -72,8 +60,12 @@ class YoloV4:
             else:
                 self.saved_model_loaded = tf.saved_model.load(FLAGS.weights, tags=[tag_constants.SERVING])
                 self.infer = self.saved_model_loaded.signatures['serving_default']
+        if FLAGS.debug:
+            logging.set_verbosity(logging.DEBUG)
+        else:
+            logging.set_verbosity(logging.INFO)
 
-    def predict_wrapper(self, in_queue: Queue, out_queue: Queue, batch_size=1):
+    def predict_wrapper(self, in_queue: Queue, out_queue: Queue, batch_size, stop_event):
         if self.FLAGS.framework == 'tflite':
             raise ValueError("")
         image_buffer, frame_id_buffer, image_copy_buffer = [], [], []
@@ -81,11 +73,20 @@ class YoloV4:
         input_size = self.FLAGS.size
         stop_flag = False
         while not stop_flag:
-            frame, frame_id = in_queue.get()
+            if stop_event.isSet():  # Clear data in queue
+                with in_queue.mutex:
+                    in_queue.queue.clear()
+                break
+            # if in_queue.qsize() == 0:
+            #     continue
+            try:
+                frame, frame_id = in_queue.get(timeout=15)
+            except Empty:
+                logging.error("Yolo thread timeout")
+                break
             if frame is None:
                 stop_flag = True
             else:
-                print("Image receive #{}".format(frame_id))
                 frame_size = frame.shape[:2]
                 image_copy_buffer.append(frame.copy())
                 image_data = cv2.resize(frame, (input_size, input_size))
@@ -93,16 +94,12 @@ class YoloV4:
                 # image_data = image_data[np.newaxis, ...].astype(np.float32)
                 image_buffer.append(image_data)
                 frame_id_buffer.append(frame_id)
-
             if len(image_buffer) == batch_size or stop_flag:
                 if len(image_buffer) > 0:
                     image_data = np.stack(image_buffer).astype(np.float32)
                     batch_data = tf.constant(image_data)
-                    print("Start inferencing, {}".format(tf.shape(batch_data)))
                     start_time = time.time()
                     pred_bbox = self.infer(batch_data)
-                    print("stop inferencing. {}".format(tf.shape(next(iter(pred_bbox.values())))))
-                    print("Time: {}".format(time.time() - start_time))
                     for key, value in pred_bbox.items():
                         boxes = value[:, :, 0:4]
                         pred_conf = value[:, :, 4:]
@@ -122,9 +119,10 @@ class YoloV4:
                         pred_bbox = [pred_bboxes[0][i:i + 1, :, :], pred_bboxes[1][i:i + 1, :],
                                      pred_bboxes[2][i:i + 1, :], pred_bboxes[3][i:i + 1]]
                         out_queue.put([pred_bbox, frame_id_buffer[i], image_copy_buffer[i]])
-                if stop_flag:
-                    out_queue.put([None, None, None])
                 image_buffer, frame_id_buffer, image_copy_buffer = [], [], []  # Reset
+        if stop_flag:
+            out_queue.put([None, None, None])
+        logging.debug("Yolo thread complete")
 
     def predict(self, frame):
         STRIDES, ANCHORS, NUM_CLASS, XYSCALE = utils.load_config(self.FLAGS)
@@ -136,10 +134,6 @@ class YoloV4:
         image_data = cv2.resize(frame, (input_size, input_size))
         image_data = image_data / 255.
         image_data = image_data[np.newaxis, ...].astype(np.float32)
-        random_data = np.random.random((1, 416, 416, 3))
-        new_image_data = np.concatenate([image_data, random_data]).astype(np.float32)
-        # image_data = np.tile(image_data, (4,1,1,1))
-        # with self.strategy.scope():
         if self.FLAGS.framework == 'tflite':
             self.interpreter.set_tensor(self.input_details[0]['index'], image_data)
             self.interpreter.invoke()
@@ -152,16 +146,11 @@ class YoloV4:
                 boxes, pred_conf = filter_boxes(pred[0], pred[1], score_threshold=0.25,
                                                 input_shape=tf.constant([input_size, input_size]))
         else:
-            batch_data = tf.constant(new_image_data, name='batch_data')
-
-            start_time = time.time()
+            batch_data = tf.constant(image_data, name='batch_data')
             pred_bbox = self.infer(batch_data)
-            time1 = time.time()
-            print("Time: {}".format(time1 - start_time))
             for key, value in pred_bbox.items():
                 boxes = value[:, :, 0:4]
                 pred_conf = value[:, :, 4:]
-
         boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
             boxes=tf.reshape(boxes, (tf.shape(boxes)[0], -1, 1, 4)),
             scores=tf.reshape(
