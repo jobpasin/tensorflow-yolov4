@@ -26,19 +26,21 @@ class YoloV4:
         # config.gpu_options.allow_growth = True
         # session = InteractiveSession(config=config)
         # tf.debugging.set_log_device_placement(True)
-        # gpus = tf.config.experimental.list_physical_devices('GPU')
-        # try:
-        #     # Currently, memory growth needs to be the same across GPUs
-        #     tf.config.experimental.set_visible_devices(gpus[0], 'GPU')
-        #     for gpu in gpus:
-        #         tf.config.experimental.set_memory_growth(gpu, True)
-        #     logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-        #     print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-        # except RuntimeError as e:
-        #     # Memory growth must be set before GPUs have been initialized
-        #     print(e)
-
         gpus = tf.config.experimental.list_physical_devices('GPU')
+        try:
+            # Currently, memory growth needs to be the same across GPUs
+            assert FLAGS.gpu < len(gpus), "--gpu is higher than number of gpu available. " \
+                                          "(Choose integer less than or equal to {} or use -1)".format(len(gpus) - 1)
+            if FLAGS.gpu != -1:
+                tf.config.experimental.set_visible_devices(gpus[FLAGS.gpu], 'GPU')
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+            logging.debug("{} Physical GPUS, {} Logical GPUS".format(len(gpus), len(logical_gpus)))
+        except RuntimeError as e:
+            # Memory growth must be set before GPUs have been initialized
+            print(e)
+
         if len(gpus) == 0:
             logging.warning('No GPU found')
         self.strategy = tf.distribute.MirroredStrategy()
@@ -46,10 +48,10 @@ class YoloV4:
         self.FLAGS = FLAGS
         self.interested_class = interested_class
         self.interpreter = None
-        self.saved_model_loaded = None
-        self.infer = None
 
         with self.strategy.scope():
+            self.saved_model_loaded = None
+            self.infer = None
             if FLAGS.framework == 'tflite':
                 self.interpreter = tf.lite.Interpreter(model_path=FLAGS.weights)
                 self.interpreter.allocate_tensors()
