@@ -3,12 +3,20 @@ from absl.flags import FLAGS
 import os
 import shutil
 import tensorflow as tf
-from core.yolov4 import YOLO, decode, compute_loss, decode_train
-from core.dataset import Dataset
-from core.config import cfg
+try:
+    from tensorflow_yolov4.core.yolov4 import YOLO, decode, compute_loss, decode_train
+    from tensorflow_yolov4.core.dataset import Dataset
+    from tensorflow_yolov4.core.config import cfg
+    from tensorflow_yolov4.core import utils
+    from tensorflow_yolov4.core.utils import freeze_all, unfreeze_all
+except ModuleNotFoundError:
+    from core.yolov4 import YOLO, decode, compute_loss, decode_train
+    from core.dataset import Dataset
+    from core.config import cfg
+    from core import utils
+    from core.utils import freeze_all, unfreeze_all
+
 import numpy as np
-from core import utils
-from core.utils import freeze_all, unfreeze_all
 
 flags.DEFINE_string('model', 'yolov4', 'yolov4, yolov3')
 flags.DEFINE_string('weights', './scripts/yolov4.weights', 'pretrained weights')

@@ -3,7 +3,10 @@ import random
 
 import cv2
 import numpy as np
+from shutil import copyfile
 import tensorflow as tf
+import csv
+import os
 
 try:
     from tensorflow_yolov4.core.config import cfg
@@ -410,3 +413,93 @@ def unfreeze_all(model, frozen=False):
     if isinstance(model, tf.keras.Model):
         for l in model.layers:
             unfreeze_all(l, frozen)
+
+
+def convert_csv_to_darknet_label(csv_path, result_path, class_name_list):
+    if not os.path.exists(result_path):
+        os.mkdir(result_path)
+    if len(os.listdir(result_path)) > 0:
+        raise ValueError("Result path is not empty")
+    class_name_list = [x.lower() for x in class_name_list]
+    with open(csv_path, mode='r') as csv_file:
+        csv_reader = csv.reader(csv_file)
+        header = next(csv_reader)
+        for row in csv_reader:
+            image_name = row[0]
+            class_name = row[1].lower()
+            try:
+                class_id = class_name_list.index(class_name)
+            except ValueError:
+                continue
+            xmin = float(row[5])
+            xmax = float(row[6])
+            ymin = float(row[7])
+            ymax = float(row[8])
+            xcenter = (xmin + xmax) / 2
+            ycenter = (ymin + ymax) / 2
+            width = xmax - xmin
+            height = ymax - ymin
+            if (xcenter <= 0 or ycenter <= 0 or width <= 0 or height <= 0 or
+                    xcenter > 1 or ycenter > 1 or width > 1 or height > 1):
+                print("Warning, image {} have invalid size".format(image_name))
+
+            with open(os.path.join(result_path, image_name + ".txt"), mode='a') as txt_writer:
+                txt_writer.write("{} {} {} {} {}\n".format(class_id, xcenter, ycenter, width, height))
+
+
+def filter_class_copy_image(image_path, new_image_path, in_csv_file, out_csv_file, class_name_list, filter=None):
+    if not os.path.exists(new_image_path):
+        os.mkdir(new_image_path)
+    if len(os.listdir(new_image_path)) > 0:
+        raise ValueError("Result path is not empty")
+    class_name_list = [x.lower() for x in class_name_list]
+    if filter is None:
+        filter = {}
+    with open(in_csv_file, mode='r') as csv_file:
+        with open(out_csv_file, mode='w', newline='') as writer:
+            csv_reader = csv.reader(csv_file)
+            header = next(csv_reader)
+            csv_writer = csv.DictWriter(writer, fieldnames=header)
+            csv_writer.writeheader()
+            for row in csv_reader:
+                image_name = row[0]
+                class_name = row[1].lower()
+                if class_name in class_name_list:
+                    class_name = class_name
+                elif class_name in filter.keys():
+                    class_name = filter[class_name]
+                else:
+                    continue
+                id = row[2]
+                label_id = row[3]
+                confidence = row[4]
+                xmin = row[5]
+                xmax = row[6]
+                ymin = row[7]
+                ymax = row[8]
+                data = {'ImageID': image_name, 'LabelName': class_name, 'Label_ID': class_name,
+                        'Confidence': confidence, 'XMin': xmin, 'XMax': xmax, 'YMin': ymin,
+                        'YMax': ymax, 'id': id}
+                original_image_dir = os.path.join(image_path, image_name + ".jpg")
+                new_image_dir = os.path.join(new_image_path, image_name + ".jpg")
+                if not os.path.exists(original_image_dir):
+                    print("Warning, image: {} not found".format(original_image_dir))
+                    continue
+                if not os.path.exists(new_image_dir):
+                    copyfile(original_image_dir, new_image_dir)
+                csv_writer.writerow(data)
+
+
+if __name__ == "__main__":
+    csv_path = "F:/project/openimage_dataset/vehicle-test-annotation-bbox.csv"
+    result_path = "F:/project/darknet_build/data/vehicle-test"
+    class_name_list = ["car", "motorcycle", "pickup", "passenger car", "bus", "truck", "trailer"]
+    # convert_csv_to_darknet_label(csv_path, result_path, class_name_list)
+
+    image_path = "F:/project/openimage_dataset/train_vehicle_image/train_00"
+    new_image_path = "F:/project/openimage_dataset/train_vehicle_image_debug"
+    in_csv_file = "F:/project/openimage_dataset/train_debug.csv"
+    out_csv_file = "F:/project/openimage_dataset/train_debug_output.csv"
+    filter = {'c': "car", 'm': "motorcycle", "p": "pickup", "pc": "passenger car", "b": "bus", "t": "truck",
+              "tt": "trailer"}
+    filter_class_copy_image(image_path, new_image_path, in_csv_file, out_csv_file, class_name_list, filter=filter)
