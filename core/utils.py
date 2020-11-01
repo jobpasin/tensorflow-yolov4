@@ -415,36 +415,57 @@ def unfreeze_all(model, frozen=False):
             unfreeze_all(l, frozen)
 
 
-def convert_csv_to_darknet_label(csv_path, result_path, class_name_list):
+def convert_csv_to_darknet_label(csv_path, image_path, result_path, result_text_path, class_name_list, only_label=True):
+    "Convert .csv file (Using dataset.py) into darknet label format (.txt)"
     if not os.path.exists(result_path):
         os.mkdir(result_path)
     if len(os.listdir(result_path)) > 0:
-        raise ValueError("Result path is not empty")
+        print("Warning, Result path is not empty")
     class_name_list = [x.lower() for x in class_name_list]
-    with open(csv_path, mode='r') as csv_file:
-        csv_reader = csv.reader(csv_file)
-        header = next(csv_reader)
-        for row in csv_reader:
-            image_name = row[0]
-            class_name = row[1].lower()
-            try:
-                class_id = class_name_list.index(class_name)
-            except ValueError:
-                continue
-            xmin = float(row[5])
-            xmax = float(row[6])
-            ymin = float(row[7])
-            ymax = float(row[8])
-            xcenter = (xmin + xmax) / 2
-            ycenter = (ymin + ymax) / 2
-            width = xmax - xmin
-            height = ymax - ymin
-            if (xcenter <= 0 or ycenter <= 0 or width <= 0 or height <= 0 or
-                    xcenter > 1 or ycenter > 1 or width > 1 or height > 1):
-                print("Warning, image {} have invalid size".format(image_name))
+    count = 0
+    folder_name = result_path.split('/')[-1]
+    with open(result_text_path, mode='w') as write_file:
+        with open(csv_path, mode='r') as csv_file:
+            csv_reader = csv.reader(csv_file)
+            header = next(csv_reader)
+            for row in csv_reader:
+                image_name = row[0]
+                class_name = row[1].lower()
+                try:
+                    class_id = class_name_list.index(class_name)
+                except ValueError:
+                    if only_label:
+                        continue
+                    else:
+                        with open(os.path.join(result_path, image_name + ".txt"), mode='a') as txt_writer:
+                            pass
+                        original_image_dir = os.path.join(image_path, image_name + ".jpg")
+                        new_image_dir = os.path.join(result_path, image_name + ".jpg")
+                        if not os.path.exists(new_image_dir):
+                            copyfile(original_image_dir, new_image_dir)
 
-            with open(os.path.join(result_path, image_name + ".txt"), mode='a') as txt_writer:
-                txt_writer.write("{} {} {} {} {}\n".format(class_id, xcenter, ycenter, width, height))
+                xmin = float(row[5])
+                xmax = float(row[6])
+                ymin = float(row[7])
+                ymax = float(row[8])
+                xcenter = (xmin + xmax) / 2
+                ycenter = (ymin + ymax) / 2
+                width = xmax - xmin
+                height = ymax - ymin
+                if (xcenter <= 0 or ycenter <= 0 or width <= 0 or height <= 0 or
+                        xcenter > 1 or ycenter > 1 or width > 1 or height > 1):
+                    print("Warning, image {} have invalid size".format(image_name))
+
+                with open(os.path.join(result_path, image_name + ".txt"), mode='a') as txt_writer:
+                    txt_writer.write("{} {} {} {} {}\n".format(class_id, xcenter, ycenter, width, height))
+                original_image_dir = os.path.join(image_path, image_name + ".jpg")
+                new_image_dir = os.path.join(result_path, image_name + ".jpg")
+                if not os.path.exists(new_image_dir):
+                    copyfile(original_image_dir, new_image_dir)
+                    write_file.write(os.path.join("data", folder_name, image_name + ".jpg\n"))
+                if count % 500 == 0:
+                    print("Copy: {} images".format(count), end='\r')
+                count += 1
 
 
 def filter_class_copy_image(image_path, new_image_path, in_csv_file, out_csv_file, class_name_list, filter=None):
@@ -491,15 +512,20 @@ def filter_class_copy_image(image_path, new_image_path, in_csv_file, out_csv_fil
 
 
 if __name__ == "__main__":
-    csv_path = "F:/project/openimage_dataset/vehicle-test-annotation-bbox.csv"
-    result_path = "F:/project/darknet_build/data/vehicle-test"
-    class_name_list = ["car", "motorcycle", "pickup", "passenger car", "bus", "truck", "trailer"]
-    # convert_csv_to_darknet_label(csv_path, result_path, class_name_list)
+    dataset = "validation"
 
-    image_path = "F:/project/openimage_dataset/train_vehicle_image/train_00"
+    csv_path = "F:/project/openimage_dataset/vehicle-{}-annotation-bbox.csv".format(dataset)
+    image_path = "F:/project/openimage_dataset/vehicle/{}_vehicle_image".format(dataset)
+    result_path = "F:/project/darknet_build/data/vehicle-{}-debug".format(dataset)
+    result_path_text = "F:/project/darknet_build/data/{}_debug.txt".format(dataset)
+    # class_name_list = ["car", "motorcycle", "pickup", "passenger car", "bus", "truck", "trailer"]
+    class_name_list = ['Bus', 'Motorcycle', 'Truck', 'Vehicle', 'Van', 'Car', 'Taxi']
+    convert_csv_to_darknet_label(csv_path, image_path, result_path, result_path_text, class_name_list)
+
+    image_path = "F:/project/openimage_dataset/vehicle/train_vehicle_image/train_00"
     new_image_path = "F:/project/openimage_dataset/train_vehicle_image_debug"
     in_csv_file = "F:/project/openimage_dataset/train_debug.csv"
     out_csv_file = "F:/project/openimage_dataset/train_debug_output.csv"
     filter = {'c': "car", 'm': "motorcycle", "p": "pickup", "pc": "passenger car", "b": "bus", "t": "truck",
               "tt": "trailer"}
-    filter_class_copy_image(image_path, new_image_path, in_csv_file, out_csv_file, class_name_list, filter=filter)
+    # filter_class_copy_image(image_path, new_image_path, in_csv_file, out_csv_file, class_name_list, filter=filter)
