@@ -175,10 +175,10 @@ def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_la
             # in_roi = is_inside_bbox(boundary.warp_matrix, coor[1], coor[3], coor[0], coor[2], boundary.width,
             #                         boundary.height)
             if not in_roi: continue
-        # coor[0] = int(coor[0] * image_h)
-        # coor[2] = int(coor[2] * image_h)
-        # coor[1] = int(coor[1] * image_w)
-        # coor[3] = int(coor[3] * image_w)
+        coor[0] = int(coor[0] * image_h)
+        coor[2] = int(coor[2] * image_h)
+        coor[1] = int(coor[1] * image_w)
+        coor[3] = int(coor[3] * image_w)
 
         fontScale = 0.5
         score = out_scores[0][i]
