@@ -12,7 +12,7 @@ from tensorflow.python.saved_model import tag_constants
 import tensorflow_yolov4.core.utils as utils
 from absl import logging
 
-from queue import Queue, Empty
+from queue import Queue, Empty, Full
 from performance import TimeMeasure
 
 # from tensorflow_yolov4.core.yolov4 import filter_boxes
@@ -75,17 +75,20 @@ class YoloV4:
         input_size = self.FLAGS.size
         stop_flag = False
         while not stop_flag:
-            if stop_event.isSet():  # Clear data in queue
+            if stop_event.isSet():  # Clear data in queue if receiving stop signal
                 with in_queue.mutex:
                     in_queue.queue.clear()
                 break
             # if in_queue.qsize() == 0:
             #     continue
+            # Fetching data
             try:
                 frame, frame_id = in_queue.get(timeout=15)
             except Empty:
                 logging.error("Yolo thread timeout")
                 break
+
+            # Add data into the list until the list has [batch_size] images
             if frame is None:
                 stop_flag = True
             else:
@@ -96,11 +99,12 @@ class YoloV4:
                 # image_data = image_data[np.newaxis, ...].astype(np.float32)
                 image_buffer.append(image_data)
                 frame_id_buffer.append(frame_id)
+
+            # Run detection when we have [batch_size] images, or has stop_flag (finish program)
             if len(image_buffer) == batch_size or stop_flag:
                 if len(image_buffer) > 0:
                     image_data = np.stack(image_buffer).astype(np.float32)
                     batch_data = tf.constant(image_data)
-                    start_time = time.time()
                     pred_bbox = self.infer(batch_data)
                     for key, value in pred_bbox.items():
                         boxes = value[:, :, 0:4]
@@ -115,13 +119,20 @@ class YoloV4:
                         score_threshold=self.FLAGS.score
                     )
                     pred_bboxes = [boxes.numpy(), scores.numpy(), classes.numpy(), valid_detections.numpy()]
-                    if self.interested_class is not None:
+                    if self.interested_class is not None:  # Filter only prediction of interested class
                         pred_bboxes = self.filter_class(pred_bboxes)
+
+                    # Send prediction one by one
                     for i in range(np.shape(pred_bboxes[3])[0]):
                         pred_bbox = [pred_bboxes[0][i:i + 1, :, :], pred_bboxes[1][i:i + 1, :],
                                      pred_bboxes[2][i:i + 1, :], pred_bboxes[3][i:i + 1]]
-                        out_queue.put([pred_bbox, frame_id_buffer[i], image_copy_buffer[i]])
-                image_buffer, frame_id_buffer, image_copy_buffer = [], [], []  # Reset
+                        if not stop_event.isSet():
+                            try:
+                                out_queue.put([pred_bbox, frame_id_buffer[i], image_copy_buffer[i]], timeout=25)
+                            except Full:
+                                pass
+                # Reset buffer after predictions
+                image_buffer, frame_id_buffer, image_copy_buffer = [], [], []
         if stop_flag:
             out_queue.put([None, None, None])
         logging.debug("Yolo thread complete")
