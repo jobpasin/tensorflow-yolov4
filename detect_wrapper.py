@@ -130,11 +130,15 @@ class YoloV4:
                             try:
                                 out_queue.put([pred_bbox, frame_id_buffer[i], image_copy_buffer[i]], timeout=25)
                             except Full:
-                                pass
+                                logging.error("bbox_queue: Read vid timeout")
+                                break
                 # Reset buffer after predictions
                 image_buffer, frame_id_buffer, image_copy_buffer = [], [], []
         if stop_flag:
-            out_queue.put([None, None, None])
+            try:
+                out_queue.put([None, None, None], timeout=25)
+            except Full:
+                pass
         logging.debug("Yolo thread complete")
 
     def predict(self, frame):
