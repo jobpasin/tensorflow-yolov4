@@ -519,7 +519,8 @@ if __name__ == "__main__":
     result_path = "F:/project/darknet_build/data/vehicle-{}-debug".format(dataset)
     result_path_text = "F:/project/darknet_build/data/{}_debug.txt".format(dataset)
     # class_name_list = ["car", "motorcycle", "pickup", "passenger car", "bus", "truck", "trailer"]
-    class_name_list = ['Bus', 'Motorcycle', 'Truck', 'Vehicle', 'Van', 'Car', 'Taxi']
+    # class_name_list = ['Bus', 'Motorcycle', 'Truck', 'Vehicle', 'Van', 'Car', 'Taxi']
+    class_name_list = ['Bus', 'Land vehicle', 'Motorcycle', 'Truck', 'Vehicle', 'Van', 'Car', 'Taxi']
     convert_csv_to_darknet_label(csv_path, image_path, result_path, result_path_text, class_name_list)
 
     image_path = "F:/project/openimage_dataset/vehicle/train_vehicle_image/train_00"
