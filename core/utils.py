@@ -154,7 +154,9 @@ def is_inside_bbox(boundary_matrix, startX, endX, startY, endY, width=500, heigh
 
 
 # New: Use for rerun_from_log.py
-def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_label=True, boundary=None):
+def draw_bbox(image, bboxes, classes=None, show_label=True, boundary=None):
+    if classes is None:
+        classes = read_class_names(cfg.YOLO.CLASSES)
     num_classes = len(classes)
     image_h, image_w, _ = image.shape
     hsv_tuples = [(1.0 * x / num_classes, 1., 1.) for x in range(num_classes)]
@@ -430,7 +432,7 @@ def convert_csv_to_darknet_label(csv_path, image_path, result_path, result_text_
             header = next(csv_reader)
             for row in csv_reader:
                 image_name = row[0]
-                class_name = row[1].lower()
+                class_name = row[1].strip().lower()
                 try:
                     class_id = class_name_list.index(class_name)
                 except ValueError:
@@ -512,16 +514,17 @@ def filter_class_copy_image(image_path, new_image_path, in_csv_file, out_csv_fil
 
 
 if __name__ == "__main__":
-    dataset = "validation"
+    dataset = "test"
 
-    csv_path = "F:/project/openimage_dataset/vehicle-{}-annotation-bbox.csv".format(dataset)
-    image_path = "F:/project/openimage_dataset/vehicle/{}_vehicle_image".format(dataset)
-    result_path = "F:/project/darknet_build/data/vehicle-{}-debug".format(dataset)
-    result_path_text = "F:/project/darknet_build/data/{}_debug.txt".format(dataset)
-    # class_name_list = ["car", "motorcycle", "pickup", "passenger car", "bus", "truck", "trailer"]
+    csv_path = "F:/project/openimage_dataset/new_label/vehicle-{}-annotation-bbox_sum.csv".format(dataset)
+    image_path = "F:/project/openimage_dataset/vehicle/{}_vehicle_image/".format(dataset)
+    result_path = "F:/project/darknet_build/data/vehicle-{}".format(dataset)
+    result_path_text = "F:/project/darknet_build/data/{}_name.txt".format(dataset)
+    # class_name_list = ["car", "motorcycle", "pickup", "passenger car", "bus", "truck", "trailer truck"]
+    class_name_list = ["pc", "m", "p", "7up", "b", "t", "tt"]
     # class_name_list = ['Bus', 'Motorcycle', 'Truck', 'Vehicle', 'Van', 'Car', 'Taxi']
-    class_name_list = ['Bus', 'Land vehicle', 'Motorcycle', 'Truck', 'Vehicle', 'Van', 'Car', 'Taxi']
-    convert_csv_to_darknet_label(csv_path, image_path, result_path, result_path_text, class_name_list)
+    # class_name_list = ['Bus', 'Land vehicle', 'Motorcycle', 'Truck', 'Vehicle', 'Van', 'Car', 'Taxi']
+    convert_csv_to_darknet_label(csv_path, image_path, result_path, result_path_text, class_name_list, only_label=True)
 
     image_path = "F:/project/openimage_dataset/vehicle/train_vehicle_image/train_00"
     new_image_path = "F:/project/openimage_dataset/train_vehicle_image_debug"
