@@ -10,6 +10,7 @@ from tensorflow.compat.v1 import ConfigProto
 from tensorflow.compat.v1 import InteractiveSession
 from tensorflow.python.saved_model import tag_constants
 import tensorflow_yolov4.core.utils as utils
+import tensorflow_yolov4.core.config as config
 from absl import logging
 
 from queue import Queue, Empty, Full
@@ -220,7 +221,17 @@ def draw_bbox(frame, pred_bbox, boundary=None):
     Draw bounding box on yolov4 output
     @param frame:
     @param pred_bbox: Direct output from yolov4
-    @param boundary: WarpMatrix class. Give None will show all bbox in the image
+    @param boundary: WarpMatrix class. Show only bbox in boundary. Give None to show all bbox in the image
     @return:
     """
     return utils.draw_bbox(frame, pred_bbox, show_label=True, boundary=boundary)
+
+
+def get_class_name():
+    path = os.path.join("tensorflow_yolov4", config.__C.YOLO.CLASSES)
+    assert os.path.exists(path), "Error: Does not find classes name file: {}".format(path)
+    name = []
+    with open(path, 'r') as f:
+        for line in f:
+            name.append(line.rstrip('\n'))
+    return name
