@@ -7,6 +7,7 @@ from shutil import copyfile
 import tensorflow as tf
 import csv
 import os
+import math
 
 try:
     from tensorflow_yolov4.core.config import cfg
@@ -418,7 +419,17 @@ def unfreeze_all(model, frozen=False):
 
 
 def convert_csv_to_darknet_label(csv_path, image_path, result_path, result_text_path, class_name_list, only_label=True):
-    "Convert .csv file (Using dataset.py) into darknet label format (.txt)"
+    """
+     "Convert .csv file (Using dataset.py) into darknet label format (.txt)"
+     @param csv_path: Path to csv file containing file name, coordinates (expect OpenImage format)
+     @param image_path: Path to directory of input images
+     @param result_path: Path to directory of output image + text file(only those exist in csv path will be copied here)
+     @param result_text_path: Path to produce .txt file containing name of all images used for darknet format
+     @param class_name_list: List of name of class that will be kept. Otherwise, that bounding box will be ignored
+     @param only_label: If True, it will skip any image that does not contain class_name_list. Good for filter positive images
+
+    """
+
     if not os.path.exists(result_path):
         os.mkdir(result_path)
     if len(os.listdir(result_path)) > 0:
@@ -513,9 +524,62 @@ def filter_class_copy_image(image_path, new_image_path, in_csv_file, out_csv_fil
                 csv_writer.writerow(data)
 
 
-if __name__ == "__main__":
-    dataset = "test"
+def combine_text():
+    """
+    Combine multiple text file (as a element of input_path) plus one negative text file (negative_path)
+    into a single output (output_path)
+    """
+    base_path = "F:project/darknet_build/data"
 
+    input_path = ["train_name.txt", "4-001.txt", "4-002.txt", "4-003.txt", "4-004.txt", "4-005.txt",
+                  "4-006.txt", "4-007.txt", "4-008.txt", "4-009.txt", "4-010.txt", "4-011.txt"]
+    negative_path = "train_negative_name.txt"
+    output_path = "train_name_combined2.txt"
+
+    with open(os.path.join(base_path, output_path), 'w') as write_file:
+        count = 0
+        for i in input_path:
+            with open(os.path.join(base_path, i), 'r') as read_file:
+                for data in read_file:
+                    data = data.replace('\\', '/')
+                    write_file.write(data)
+                    count += 1
+
+        count = (math.ceil(count / 1000) + 1) * 1000
+        with open(os.path.join(base_path, negative_path), 'r') as read_file:
+            negative_count = 0
+            for data in read_file:
+                data = data.replace('\\', '/')
+                write_file.write(data)
+                if negative_count == count:
+                    break
+                negative_count += 1
+            if negative_count < count:
+                print("Warning, negative image not enough")
+        print("Getting {} negative images".format(count))
+
+    with open(os.path.join(base_path, "validation_name_combined2.txt"), 'w') as write_file:
+        count = 0
+        with open(os.path.join(base_path, "validation_name.txt"), 'r') as read_file:
+            for data in read_file:
+                data = data.replace('\\', '/')
+                write_file.write(data)
+                count += 1
+
+        with open(os.path.join(base_path, "validation_negative_name.txt"), 'r') as read_file:
+            negative_count = 0
+            for data in read_file:
+                data = data.replace('\\', '/')
+                write_file.write(data)
+                # if negative_count == count:
+                #     break
+                negative_count += 1
+
+        print("Getting {} validation negative images".format(count))
+
+
+if __name__ == "__main__":
+    dataset = "train"
     csv_path = "F:/project/openimage_dataset/new_label/vehicle-{}-annotation-bbox_sum.csv".format(dataset)
     image_path = "F:/project/openimage_dataset/vehicle/{}_vehicle_image/".format(dataset)
     result_path = "F:/project/darknet_build/data/vehicle-{}".format(dataset)

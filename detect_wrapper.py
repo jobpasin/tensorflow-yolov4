@@ -216,22 +216,33 @@ class YoloV4:
         return [np.stack(boxes_new), np.stack(scores_new), np.stack(classes_new), np.array(valid_detection_new)]
 
 
-def draw_bbox(frame, pred_bbox, boundary=None):
+def draw_bbox(frame, pred_bbox, boundary=None, classes=None):
     """
     Draw bounding box on yolov4 output
     @param frame:
     @param pred_bbox: Direct output from yolov4
     @param boundary: WarpMatrix class. Show only bbox in boundary. Give None to show all bbox in the image
+    @param classes: List of full class name
     @return:
     """
-    return utils.draw_bbox(frame, pred_bbox, show_label=True, boundary=boundary)
+    return utils.draw_bbox(frame, pred_bbox, classes=classes, show_label=True, boundary=boundary)
 
 
-def get_class_name():
-    path = os.path.join("tensorflow_yolov4", config.__C.YOLO.CLASSES)
+def get_class_name(dataset_type):
+    if dataset_type == "coco":
+        path = os.path.join("tensorflow_yolov4", "data/classes/coco.names")
+    elif dataset_type == "doh":
+        path = os.path.join("tensorflow_yolov4", "data/classes/vehicle.names")
+    else:
+        raise ValueError("dataset argument is invalid")
+
     assert os.path.exists(path), "Error: Does not find classes name file: {}".format(path)
     name = []
     with open(path, 'r') as f:
         for line in f:
             name.append(line.rstrip('\n'))
-    return name
+    if dataset_type == "coco":
+        interested_class = [1, 2, 3, 5, 7]  # /Person/, Bicycle, Car, motorbike, bus, /train/, truck
+    elif dataset_type == "doh":
+        interested_class = [i for i in range(len(name))]
+    return name, interested_class
